@@ -5,18 +5,19 @@ You can enable a built-in sign-in flow in your Space by seamlessly creating and 
 This enables new use cases for your Space. For instance, when combined with [Persistent Storage](https://huggingface.co/docs/hub/spaces-storage), a generative AI Space could allow users to log in to access their previous generations, only accessible to them.
 
 <Tip>
-
-This guide will take you through the process of integrating a *Sign-In with HF* button into any Space. If you're seeking a fast and simple method to implement this in a **Gradio** Space, take a look at its [built-in integration](https://www.gradio.app/guides/sharing-your-app#o-auth-login-via-hugging-face).
-
+If your Space uses **Gradio**, we recommend following the [Gradio OAuth integration guide](https://www.gradio.app/guides/sharing-your-app#o-auth-login-via-hugging-face), which is simpler and built-in.  
+**Only follow this guide if you are _not_ using Gradio** (e.g. static, Streamlit, custom JS/Node/Python apps).
 </Tip>
 
 <Tip>
-
 You can also use the HF OAuth flow to create a "Sign in with HF" flow in any website or App, outside of Spaces. [Read our general OAuth page](./oauth).
-
 </Tip>
 
-## Create an OAuth app
+**This integration can be done in 2 steps:**
+1. Enable OAuth in your Space's configuration
+2. Add the sign in button in your code
+
+## 1. Enable OAuth in your Space's configuration
 
 All you need to do is add `hf_oauth: true` to your Space's metadata inside your `README.md` file.
 
@@ -59,15 +60,12 @@ This will add the following [environment variables](https://huggingface.co/docs/
 
 As for any other environment variable, you can use them in your code by using `os.getenv("OAUTH_CLIENT_ID")`, for example.
 
-## Redirect URLs 
+<Tip warning={true}>
+For Spaces OAuth integration, you do NOT need to configure anything in your Hugging Face account settings.  
+Everything is managed by adding metadata to your Space and handling the authentication flow in your code.
+</Tip>
 
-You can use any redirect URL you want, as long as it targets your Space.
-
-Note that `SPACE_HOST` is [available](https://huggingface.co/docs/hub/spaces-overview#helper-environment-variables) as an environment variable.
-
-For example, you can use `https://{SPACE_HOST}/login/callback` as a redirect URI.
-
-## Scopes
+### Scopes
 
 The following scopes are always included for Spaces:
 
@@ -84,7 +82,7 @@ Those scopes are optional and can be added by setting `hf_oauth_scopes` in your 
 - `inference-api`: Get access to the [Inference API](https://huggingface.co/docs/inference-providers/index), you will be able to make inference requests on behalf of the user.
 - `write-discussions`: Open discussions and Pull Requests on behalf of the user as well as interact with discussions (including reactions, posting/editing comments, closing discussions, ...). To open Pull Requests on private repos, you need to request the `read-repos` scope as well.
 
-## Accessing organization resources
+### Accessing organization resources
 
 By default, the oauth app does not need to access organization resources.
 
@@ -92,14 +90,15 @@ But some scopes like `read-repos` or `read-billing` apply to organizations as we
 
 The user can select which organizations to grant access to when authorizing the app. If you require access to a specific organization, you can add `orgIds=ORG_ID` as a query parameter to the OAuth authorization URL. You have to replace `ORG_ID` with the organization ID, which is available in the `organizations.sub` field of the userinfo response.
 
-## Adding the button to your Space
+## 2. Add the sign in button in your code
 
-You now have all the information to add a "Sign-in with HF" button to your Space. Some libraries ([Python](https://github.com/lepture/authlib), [NodeJS](https://github.com/panva/node-openid-client)) can help you implement the OpenID/OAuth protocol. 
+You now have all the information to add a "Sign-in with HF" button to your Space and implement the authentication flow. Some libraries ([Python](https://github.com/lepture/authlib), [NodeJS](https://github.com/panva/node-openid-client)) can help you implement the OpenID/OAuth protocol.
 
 Gradio and huggingface.js also provide **built-in support**, making implementing the Sign-in with HF button a breeze; you can check out the associated guides with [gradio](https://www.gradio.app/guides/sharing-your-app#o-auth-login-via-hugging-face) and with [huggingface.js](https://huggingface.co/docs/huggingface.js/hub/README#oauth-login).
 
 Basically, you need to:
 
+- Choose a redirect URL that targets your Space (e.g., `https://{SPACE_HOST}/login/callback`).
 - Redirect the user to `https://huggingface.co/oauth/authorize?redirect_uri={REDIRECT_URI}&scope=openid%20profile&client_id={CLIENT_ID}&state={STATE}`, where `STATE` is a random string that you will need to verify later.
 - Handle the callback on `/auth/callback` or `/login/callback` (or your own custom callback URL) and verify the `state` parameter.
 - Use the `code` query parameter to get an access token and id token from `https://huggingface.co/oauth/token` (POST request with `client_id`, `code`, `grant_type=authorization_code` and `redirect_uri` as form data, and with `Authorization: Basic {base64(client_id:client_secret)}` as a header).
@@ -110,14 +109,20 @@ You should use `target=_blank` on the button to open the sign-in page in a new t
 
 </Tip>
 
-## Examples:
+### Redirect URLs
 
-- [Gradio test app](https://huggingface.co/spaces/Wauplin/gradio-oauth-test)
+You can use any redirect URL you want, as long as it targets your Space.
+
+Note that SPACE_HOST is available as an environment variable.
+
+For example, you can use https://{SPACE_HOST}/login/callback as a redirect URI.
+
+## Examples
+
+- [Client-Side in a Static Space (huggingface.js)](https://huggingface.co/spaces/huggingfacejs/client-side-oauth) – very simple JavaScript example.
 - [Hugging Chat (NodeJS/SvelteKit)](https://huggingface.co/spaces/huggingchat/chat-ui)
-- [Inference Widgets (Auth.js/SvelteKit)](https://huggingface.co/spaces/huggingfacejs/inference-widgets), uses the `inference-api` scope to make inference requests on behalf of the user.
-- [Client-Side in a Static Space (huggingface.js)](https://huggingface.co/spaces/huggingfacejs/client-side-oauth) - very simple JavaScript example.
-
-JS Code example:
+- [Inference Widgets (Auth.js/SvelteKit)](https://huggingface.co/spaces/huggingfacejs/inference-widgets) – uses the `inference-api` scope to make inference requests on behalf of the user.
+- [Gradio test app](https://huggingface.co/spaces/Wauplin/gradio-oauth-test)
 
 ```js
 import { oauthLoginUrl, oauthHandleRedirectIfPresent } from "@huggingface/hub";
